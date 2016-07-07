@@ -1,0 +1,4 @@
+References:
+
+https://discussions.udacity.com/t/looping-over-best-k-features/169141https://discussions.udacity.com/t/gridsearchcv-with-pca-and-svm-a-sensible-approach/44420http://nbviewer.jupyter.org/github/DariaAlekseeva/Enron_Dataset/blob/master/Enron%20POI%20Detector%20Project%20Assignment.ipynbhttp://scikit-learn.org/stable/modules/feature_selection.html#univariate-feature-selectionhttp://scikit-learn.org/stable/modules/ensemble.htmlhttps://discussions.udacity.com/t/naivebayes-and-adaboost/167713http://scikit-learn.org/stable/modules/generated/sklearn.grid_search.GridSearchCV.html#sklearn.grid_search.GridSearchCVhttp://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html
+http://scikit-learn.org/stable/modules/svm.htmlhttps://en.wikipedia.org/wiki/Precision_and_recallhttps://docs.python.org/2/library/pickle.html
