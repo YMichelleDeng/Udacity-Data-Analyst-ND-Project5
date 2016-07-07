@@ -17,14 +17,13 @@ from time import time
 ### The first feature must be "poi".
 ### features_list = ['poi','salary'] # You will need to use more features
 
-# features_list = ['poi','salary','deferral_payments','expenses','deferred_income','long_term_incentive',
-#                  'restricted_stock_deferred','loan_advances','director_fees','bonus','other',
-#                  'total_stock_value','restricted_stock','total_payments','exercised_stock_options',
-#                  'shared_receipt_with_poi','to_poi_ratio','from_poi_ratio']
+##features_list = ['poi','salary','deferral_payments','expenses','deferred_income','long_term_incentive',
+##                  'restricted_stock_deferred','loan_advances','director_fees','bonus','other',
+##                  'total_stock_value','restricted_stock','total_payments','exercised_stock_options',
+##                  'shared_receipt_with_poi','to_poi_ratio','from_poi_ratio']
 
-# features_list = ['poi','salary', 'bonus', 'total_stock_value', 'exercised_stock_options']
+features_list = ['poi', 'bonus', 'expenses', 'exercised_stock_options', 'to_poi_ratio', 'restricted_stock', 'deferred_income'] # selected sum_feature_scores >0.7
 
-features_list = ['poi', 'bonus', 'total_stock_value', 'exercised_stock_options']
 
 
 ### Load the dictionary containing the dataset
@@ -105,13 +104,19 @@ labels, features = targetFeatureSplit(data)
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
 
-### split data into training and testing sets
-from sklearn import cross_validation
-features_train, features_test, labels_train, labels_test = cross_validation.train_test_split(features, labels, test_size = 0.1, random_state=42)
-
-### KFold validation for split and validate the classifier
+### feature selection using Decision Tree Classifier with KFold validation
 from sklearn.cross_validation import KFold
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 
+acc = []
+precision = []
+recall = []
+feature_scores = []
+
+t0 = time()
 k = KFold(len(labels), 10)
 for train_index, test_index in k:
     features_train = [features[ii] for ii in train_index]
@@ -119,74 +124,80 @@ for train_index, test_index in k:
     labels_train = [labels[ii] for ii in train_index]
     labels_test= [labels[ii] for ii in test_index]
 
+    DTclf = DecisionTreeClassifier(random_state = 11)
+    DTclf.fit(features_train, labels_train)
+    pred = DTclf.predict(features_test)
+    acc.append(accuracy_score(labels_test, pred))
+    precision.append(precision_score(labels_test, pred))
+    recall.append(recall_score(labels_test, pred))
+    feature_scores.append(DTclf.feature_importances_)
+   
+print "Time:", round(time()-t0, 3), "s"
+print "Accuracy:", acc, np.mean(acc)
+print "Precision:", precision, np.mean(precision)
+print "Recall:", recall, np.mean(recall)
 
-### Decision Tree Classifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import precision_score
-
-def decision_tree(features_train, features_test, labels_train, labels_test):
-    t0 = time()
-    clf = DecisionTreeClassifier(random_state = 11)
-    clf.fit(features_train, labels_train)
-    pred = clf.predict(features_test)
-    acc = accuracy_score(labels_test, pred)
-    precision = precision_score(labels_test, pred)
-    recall = recall_score(labels_test, pred)
-
-    print "Time for decision tree:", round(time()-t0, 3), "s"
-    print "Accuracy for decision tree::", acc
-    print "Precision for decision tree:", precision
-    print "Recall for decision tree:", recall
-
-    feature_scores = clf.feature_importances_
-    indices = np.argsort(feature_scores)[::-1]
-    print "Feature ranking for decision tree:"
-    # for i in range (len(features_list)-1):
-    #     print (i+1, features_list[i+1], feature_scores[indices[i]])
-    print feature_scores
-
-decision_tree(features_train, features_test, labels_train, labels_test)
+sum_feature_scores = [sum(x) for x in zip(*feature_scores)]
+print "10-fold sum feature scores:", sum_feature_scores
+for i in range (len(features_list)-1):
+    print (i+1, features_list[i+1], sum_feature_scores[i])
 
 
-### SelectKBest - looping over best K
-from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import f_classif
 
-for j in range (2, len(features_list)):
-    select = SelectKBest(f_classif, k = j)
-    select.fit(features_train, labels_train)
-    new_features_train = select.transform(features_train)
-    new_features_test = select.transform(features_test)
-    new_features_list = select.get_support(indices = False)
-    print "New_features_train dimensions:", new_features_train.shape
-    print "Selected", j, "features:"
-    print new_features_list
-    
-    decision_tree(new_features_train, new_features_test, labels_train, labels_test)
-
-
-### Adaboost Classifier
+### Try out the Adaboost Classifier
 from sklearn.ensemble import AdaBoostClassifier
+
+acc = []
+precision = []
+recall = []
+
 t0 = time()
-ABclf = AdaBoostClassifier(n_estimators = 100, random_state = 11)
-ABclf.fit(features_train, labels_train)
-pred = ABclf.predict(features_test)
-acc = accuracy_score(labels_test, pred)
-precision = precision_score(labels_test, pred)
-recall = recall_score(labels_test, pred)
+k = KFold(len(labels), 10)
+for train_index, test_index in k:
+    features_train = [features[ii] for ii in train_index]
+    features_test= [features[ii] for ii in test_index]
+    labels_train = [labels[ii] for ii in train_index]
+    labels_test= [labels[ii] for ii in test_index]
+    
+    ABclf = AdaBoostClassifier(n_estimators = 100, random_state = 11)
+    ABclf.fit(features_train, labels_train)
+    pred = ABclf.predict(features_test)
+    acc.append(accuracy_score(labels_test, pred))
+    precision.append(precision_score(labels_test, pred))
+    recall.append(recall_score(labels_test, pred))
 
 print "Time for Adaboost:", round(time()-t0, 3), "s"
-print "Accuracy for Adaboost::", acc
-print "Precision for Adaboost:", precision
-print "Recall for Adaboost:", recall
+print "Accuracy for Adaboost:", acc, np.mean(acc)
+print "Precision for Adaboost:", precision, np.mean(precision)
+print "Recall for Adaboost:", recall, np.mean(recall)
 
 
-### GaussianNB
+### Try out the GaussianNB
 from sklearn.naive_bayes import GaussianNB
-NBclf = GaussianNB()
-NBclf. fit(features_train, labels_train)
+
+acc = []
+precision = []
+recall = []
+
+t0 = time()
+k = KFold(len(labels), 10)
+for train_index, test_index in k:
+    features_train = [features[ii] for ii in train_index]
+    features_test= [features[ii] for ii in test_index]
+    labels_train = [labels[ii] for ii in train_index]
+    labels_test= [labels[ii] for ii in test_index]
+    
+    NBclf = GaussianNB()
+    NBclf. fit(features_train, labels_train)
+    pred = NBclf.predict(features_test)
+    acc.append(accuracy_score(labels_test, pred))
+    precision.append(precision_score(labels_test, pred))
+    recall.append(recall_score(labels_test, pred))
+    
+print "Time for GaussianNB:", round(time()-t0, 3), "s"
+print "Accuracy for GaussianNB:", acc, np.mean(acc)
+print "Precision for GaussianNB:", precision, np.mean(precision)
+print "Recall for GaussianNB:", recall, np.mean(recall)
 
 
 
@@ -203,56 +214,66 @@ parameters = {"min_samples_split": [2, 3, 4, 5, 6, 7, 8],
               "criterion": ["gini", "entropy"],
               "splitter": ["best", "random"],
               }
+scores = ['precision', 'recall']
 
-tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None)
-DTclf = GridSearchCV(tree, param_grid = parameters)
-DTclf.fit(features_train, labels_train)
-print "The best parameters for decision tree:"
-print (DTclf.best_params_)
+for score in scores:
+    print ("Tuning hyper-parameters for", score)    
+    tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None)
+    DTclf = GridSearchCV(tree, param_grid = parameters, cv=5, scoring = score)
+    DTclf.fit(features, labels)
+    print "The best parameters for decision tree:"
+    print (DTclf.best_params_)
 
 
 ### Tune Adaboost Classifier
 parameters = {"n_estimators": [1, 10, 50, 100, 200],
-              "base_estimator__min_samples_split": [2, 3, 4, 5, 6, 7, 8],
-              "base_estimator__criterion": ["gini", "entropy"],
-              "base_estimator__splitter": ["best", "random"],
               }
-
-tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None)
-Adaboost_tuned = AdaBoostClassifier(base_estimator = tree, random_state = 11)
-ABclf = GridSearchCV(Adaboost_tuned, param_grid = parameters)
-ABclf.fit(features_train, labels_train)
-
-print "The best parameters for Adaboost:"
-print (ABclf.best_params_)
+scores = ['precision', 'recall']
+for score in scores:
+    print ("Tuning hyper-parameters for", score)
+    tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None)
+    Adaboost_tuned = AdaBoostClassifier(base_estimator = tree, random_state = 11)
+    ABclf = GridSearchCV(Adaboost_tuned, param_grid = parameters, cv=5, scoring = score)
+    ABclf.fit(features, labels)
+    print "The best parameters for Adaboost:"
+    print (ABclf.best_params_)
+  
 
 
 ### The Final Classifier
 
-### Decision Tree
-# clf = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None, min_samples_split = 2, criterion = 'entropy', splitter = 'random')
+### Split data into training and testing sets
 
-### Adaboost
-# tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto",max_depth = None, min_samples_split = 5, criterion = 'gini', splitter = 'best')
-# clf = AdaBoostClassifier(n_estimators = 10, base_estimator = tree, random_state = 11)
+# from sklearn import cross_validation
+# features_train, features_test, labels_train, labels_test = cross_validation.train_test_split(features, labels, test_size = 0.1, random_state=42)
 
-tree = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto",max_depth = None, min_samples_split = 2, criterion = 'gini', splitter = 'random')
-clf = AdaBoostClassifier(n_estimators = 1, base_estimator = tree, random_state = 11)
+from sklearn.cross_validation import StratifiedShuffleSplit
+sss = StratifiedShuffleSplit(labels, n_iter = 5, test_size = 0.1, random_state = 0)
 
-clf.fit(features_train, labels_train)
-pred = clf.predict(features_test)
-acc = accuracy_score(labels_test, pred)
-precision = precision_score(labels_test, pred)
-recall = recall_score(labels_test, pred)
+acc = []
+precision = []
+recall = []
 
-print "Accuracy for Adaboost::", acc
-print "Precision for Adaboost:", precision
-print "Recall for Adaboost:", recall
+t0 = time()
+for train_index, test_index in sss:
+    features_train = [features[ii] for ii in train_index]
+    features_test= [features[ii] for ii in test_index]
+    labels_train = [labels[ii] for ii in train_index]
+    labels_test= [labels[ii] for ii in test_index]
 
+    ### Decision Tree Classifier
+    clf = DecisionTreeClassifier(random_state = 11, max_features = "auto", class_weight = "auto", max_depth = None, min_samples_split = 3, splitter = 'random', criterion = 'gini')
 
+    clf.fit(features_train, labels_train)
+    pred = clf.predict(features_test)
+    acc.append(accuracy_score(labels_test, pred))
+    precision.append(precision_score(labels_test, pred))
+    recall.append(recall_score(labels_test, pred))
 
-### GaussianNB
-# clf = NBclf
+print "Final model - Accuracy:", acc, np.mean(acc)
+print "Final model - Precision:", precision, np.mean(precision)
+print "Final model - Recall:", recall, np.mean(recall) 
+
 
 
 test_classifier(clf, my_dataset, features_list)
